@@ -68,27 +68,25 @@ void haydensMethod(std::vector<TaskNode> allTasks, std::vector<AgentNode> allAge
   // if(agent_leaving_connection(all_a)){
   //     send_all_info = true;
   // }
+
   all_send_position_info(allAgents, interface);
   compute_all_parital_assignments_hungarian(allAgents, allTasks);
   
   determine_assigned_location(allAgents, allTasks);
 
-
-  move_all_agents_towards_goal_step(allAgents);
-  
-
   //print all agents positions
   for(unsigned long int i = 0; i < allAgents.size(); i++){
       allAgents[i].agent->print_position();
-      // std::cout << " ";
-      // allAgents[i].agent->print_assigned_position();
+      std::cout << " ";
+      allAgents[i].agent->print_assigned_position();
       // allAgents[i].agent->print_agent_costs();
       // print_known_positions(allAgents[i]);
       // allAgents[i].agent->print_known_info();
       print_known_positions(allAgents[i]);
   }
   std::cout << std::endl;
-  
+
+  move_all_agents_towards_goal_step(allAgents);
   
   Simulator::Schedule(Seconds(0.5), &haydensMethod, allTasks, allAgents, interface);
 }
