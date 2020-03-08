@@ -37,8 +37,7 @@ NS_LOG_COMPONENT_DEFINE("WifiSimpleAdhoc");
 
 bool start = false;
 
-void haydensMethod(std::vector<TaskNode> allTasks, std::vector<AgentNode> allAgents, TypeId tid, Ipv4InterfaceContainer interface){
-  
+void haydensMethod(std::vector<TaskNode> allTasks, std::vector<AgentNode> allAgents, Ipv4InterfaceContainer interface){
   calculate_all_costs(allTasks, allAgents);
 
   costMatrix = create_cmatrix(allAgents);
@@ -49,12 +48,11 @@ void haydensMethod(std::vector<TaskNode> allTasks, std::vector<AgentNode> allAge
   determine_connected_components(allAgents, comm_g);
   
   fill_in_component_arrs(allAgents);
-  initialize_all_needed_info(allAgents);
   
+  initialize_all_needed_info(allAgents);
   initialize_all_requests(allAgents);
   
-  initial_request_sharing(allAgents, tid, interface);
-  
+  initial_request_sharing(allAgents, interface);
   bool conflicts = conflicts_exist(allAgents);
   
   
@@ -70,9 +68,7 @@ void haydensMethod(std::vector<TaskNode> allTasks, std::vector<AgentNode> allAge
   // if(agent_leaving_connection(all_a)){
   //     send_all_info = true;
   // }
-  
-  all_send_position_info(allAgents, tid, interface);
-  
+  all_send_position_info(allAgents, interface);
   compute_all_parital_assignments_hungarian(allAgents, allTasks);
   
   determine_assigned_location(allAgents, allTasks);
@@ -82,26 +78,26 @@ void haydensMethod(std::vector<TaskNode> allTasks, std::vector<AgentNode> allAge
   
 
   //print all agents positions
-  // for(unsigned long int i = 0; i < allAgents.size(); i++){
-      // allAgents[i].agent->print_position();
+  for(unsigned long int i = 0; i < allAgents.size(); i++){
+      allAgents[i].agent->print_position();
       // std::cout << " ";
       // allAgents[i].agent->print_assigned_position();
-      //allAgents[i].agent->print_agent_costs();
+      // allAgents[i].agent->print_agent_costs();
       // print_known_positions(allAgents[i]);
-      //allAgents[i].agent->print_known_info();
-      //print_known_positions(allAgents[i]);
-  // }
-  //print_comm_g(comm_g);
-  //std::cout << std::endl;
+      // allAgents[i].agent->print_known_info();
+      print_known_positions(allAgents[i]);
+  }
+  std::cout << std::endl;
   
-  Simulator::Schedule(Seconds(0.5), &haydensMethod, allTasks, allAgents, tid, interface);
+  
+  Simulator::Schedule(Seconds(0.5), &haydensMethod, allTasks, allAgents, interface);
 }
 
 
 int main(int argc, char *argv[]){
   srand(1);
-  numAgents = 3;
-  numTasks = 3;
+  numAgents = 10;
+  numTasks = numAgents;
   speed = 5.0;
   std::string phyMode("DsssRate1Mbps");
   double rss = -80;  // -dBm
@@ -115,7 +111,6 @@ int main(int argc, char *argv[]){
   maxPosition = 400.0;
   comm_thresh = 120;
   maxCharsSent = 10;
-  socketNum = 0;
 
   std::vector<int> temp2(numAgents, 0);
   instrument_assignment = temp2;
@@ -236,13 +231,21 @@ int main(int argc, char *argv[]){
   ipv4.SetBase("10.1.1.0", "255.255.255.0");
   Ipv4InterfaceContainer interface = ipv4.Assign(devices);
   
-  TypeId tid = TypeId::LookupByName("ns3::UdpSocketFactory");
-
   // Tracing
   wifiPhy.EnablePcap("wifi-simple-adhoc", devices);
 
-  //Simulator::Schedule(Seconds(1.0), &BroadcastMessage, "hello", 0, agents, tid, interface);
-  Simulator::Schedule(Seconds(0.5), &haydensMethod, allTasks, allAgents, tid, interface);
+  // Create sockets
+  for(int i = 0; i < numAgents; i++){
+    Ptr<Socket> recvSink = Socket::CreateSocket(allAgents.at(i).node, UdpSocketFactory::GetTypeId ());
+    InetSocketAddress local = InetSocketAddress(Ipv4Address::GetAny (), 80);
+    if(recvSink->Bind(local) == -1){
+      recvSink->Close();
+      std::cout << "Error binding" << std::endl;
+    } 
+    recvSink->SetRecvCallback(MakeCallback(&ReceivePacket));
+  }
+
+  Simulator::Schedule(Seconds(0.5), &haydensMethod, allTasks, allAgents, interface);
   Simulator::Run();
   Simulator::Destroy();
 
