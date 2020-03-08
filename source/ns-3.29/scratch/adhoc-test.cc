@@ -17,39 +17,6 @@
  *
  */
 
-// This script configures two nodes on an 802.11b physical layer, with
-// 802.11b NICs in adhoc mode, and by default, sends one packet of 1000
-//(application) bytes to the other node.  The physical layer is configured
-// to receive at a fixed RSS(regardless of the distance and transmit
-// power); therefore, changing position of the nodes has no effect.
-//
-// There are a number of command-line options available to control
-// the default behavior.  The list of available command-line options
-// can be listed with the following command:
-// ./waf --run "wifi-simple-adhoc --help"
-//
-// For instance, for this configuration, the physical layer will
-// stop successfully receiving packets when rss drops below -97 dBm.
-// To see this effect, try running:
-//
-// ./waf --run "wifi-simple-adhoc --rss=-97 --numPackets=20"
-// ./waf --run "wifi-simple-adhoc --rss=-98 --numPackets=20"
-// ./waf --run "wifi-simple-adhoc --rss=-99 --numPackets=20"
-//
-// Note that all ns-3 attributes(not just the ones exposed in the below
-// script) can be changed at command line; see the documentation.
-//
-// This script can also be helpful to put the Wifi layer into verbose
-// logging mode; this command will turn on all wifi logging:
-//
-// ./waf --run "wifi-simple-adhoc --verbose=1"
-//
-// When you are done, you will notice two pcap trace files in your directory.
-// If you have tcpdump installed, you can try this:
-//
-// tcpdump -r wifi-simple-adhoc-0-0.pcap -nn -tt
-//
-
 #include "ns3/command-line.h"
 #include "ns3/config.h"
 #include "ns3/double.h"
@@ -68,86 +35,95 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("WifiSimpleAdhoc");
 
-void ReceivePacket(Ptr<Socket> socket){
-  Ptr<Node> node = socket->GetNode();
-  std::cout << node->GetId() << std::endl;
-  Ptr<Packet> packet = socket->Recv();
-  uint8_t *buf = new uint8_t[packet->GetSize()];
-  packet->CopyData(buf, packet->GetSize() - 2);
-  std::string msg = std::string(reinterpret_cast<const char *>(buf), packet->GetSize() - 2);
-  //std::cout << msg << " " << msg.length() << std::endl;
-  free(buf);
-}
+bool start = false;
 
-Vector GetPosition (Ptr<Node> node){
-  Ptr<MobilityModel> mobility = node->GetObject<MobilityModel> ();
-  return mobility->GetPosition ();
-}
+void haydensMethod(std::vector<TaskNode> allTasks, std::vector<AgentNode> allAgents, TypeId tid, Ipv4InterfaceContainer interface){
+  
+  calculate_all_costs(allTasks, allAgents);
 
-void SetPosition (Ptr<Node> node, Vector position){
-  Ptr<MobilityModel> mobility = node->GetObject<MobilityModel> ();
-  mobility->SetPosition (position);
-}
+  costMatrix = create_cmatrix(allAgents);
+  fillAllLocalCosts(allAgents);
 
-void movePositions(Ptr<Node> node){
-  Vector pos = GetPosition(node);
-  pos.x += 1;
-  pos.y += 1;
-  SetPosition (node, pos);
-}
-
-void moveAllPositions(NodeContainer robots){
-  for(int i = 0; i < 10; i++){
-    movePositions(robots.Get(i));
+  comm_g = create_init_comm_graph(allAgents);
+  
+  determine_connected_components(allAgents, comm_g);
+  
+  fill_in_component_arrs(allAgents);
+  initialize_all_needed_info(allAgents);
+  
+  initialize_all_requests(allAgents);
+  
+  initial_request_sharing(allAgents, tid, interface);
+  
+  bool conflicts = conflicts_exist(allAgents);
+  
+  
+  if(!conflicts && all_agents_assigned(allAgents)){
+      std::cout << "SUCCESSFUL: No conflicts, all agents are assigned" << std::endl;
+      return;
   }
-}
-
-static void BroadcastMessage(const char* data, int sourceNode,
-            NodeContainer robots, TypeId tid, Ipv4InterfaceContainer interface){
-  moveAllPositions(robots);
-  std::cout << sourceNode << std::endl;
-  Ptr<Socket> source = Socket::CreateSocket(robots.Get(sourceNode), tid);
-  InetSocketAddress remote = InetSocketAddress(interface.GetAddress(5), 80);
-  source->Bind(remote);
-  source->SetRecvCallback(MakeCallback(&ReceivePacket));
-  //source->SetAllowBroadcast(true);
-  source->Connect(remote);
-
-  Ptr<Packet> packet = Create<Packet>(reinterpret_cast<const uint8_t*>(data), sizeof(data));
-  source->Send(packet);
-  source->Close();
-
-  sourceNode++;
-  if(sourceNode == 4){
-    sourceNode = 0;
+  
+  if(conflicts){
+      std::cout << "Conflicts Exist" << std::endl;
   }
 
-  Simulator::Schedule(Seconds(1.0), &BroadcastMessage, data, sourceNode, robots, tid, interface);
+  // if(agent_leaving_connection(all_a)){
+  //     send_all_info = true;
+  // }
+  
+  all_send_position_info(allAgents, tid, interface);
+  
+  compute_all_parital_assignments_hungarian(allAgents, allTasks);
+  
+  determine_assigned_location(allAgents, allTasks);
+
+
+  move_all_agents_towards_goal_step(allAgents);
+  
+
+  //print all agents positions
+  // for(unsigned long int i = 0; i < allAgents.size(); i++){
+      // allAgents[i].agent->print_position();
+      // std::cout << " ";
+      // allAgents[i].agent->print_assigned_position();
+      //allAgents[i].agent->print_agent_costs();
+      // print_known_positions(allAgents[i]);
+      //allAgents[i].agent->print_known_info();
+      //print_known_positions(allAgents[i]);
+  // }
+  //print_comm_g(comm_g);
+  //std::cout << std::endl;
+  
+  Simulator::Schedule(Seconds(0.5), &haydensMethod, allTasks, allAgents, tid, interface);
 }
 
-double fRand(double fMin, double fMax){
-    double f = (double)rand() / RAND_MAX;
-    return fMin + f * (fMax - fMin);
-}
 
 int main(int argc, char *argv[]){
-  srand(0);
-  int numRobots = 10;
-  int numTasks = 10;
-  int minMap = 150;
-  int maxMap = 250;
+  srand(1);
+  numAgents = 3;
+  numTasks = 3;
+  speed = 5.0;
   std::string phyMode("DsssRate1Mbps");
   double rss = -80;  // -dBm
-  uint32_t packetSize = 1000; // bytes
-  uint32_t numPackets = 1;
   double interval = 1.0; // seconds
   bool verbose = false;
+  time_period = 2; // idk
+  agent_velocity = speed;
+  num_instrument_classes = 1;
+  agents_per_class  = numAgents; //make sure not fractional
+  minPosition = 0.0;
+  maxPosition = 400.0;
+  comm_thresh = 120;
+  maxCharsSent = 10;
+  socketNum = 0;
+
+  std::vector<int> temp2(numAgents, 0);
+  instrument_assignment = temp2;
+ 
 
   CommandLine cmd;
   cmd.AddValue("phyMode", "Wifi Phy mode", phyMode);
   cmd.AddValue("rss", "received signal strength", rss);
-  cmd.AddValue("packetSize", "size of application packet sent", packetSize);
-  cmd.AddValue("numPackets", "number of packets generated", numPackets);
   cmd.AddValue("interval", "interval(seconds) between packets", interval);
   cmd.AddValue("verbose", "turn on all WifiNetDevice log components", verbose);
   cmd.Parse(argc, argv);
@@ -158,12 +134,12 @@ int main(int argc, char *argv[]){
   Config::SetDefault("ns3::WifiRemoteStationManager::NonUnicastMode",
                       StringValue(phyMode));
 
-  NodeContainer robots;
-  robots.Create(numRobots);
+  NodeContainer agents;
+  agents.Create(numAgents);
 
   NodeContainer tasks;
   tasks.Create(numTasks);
-
+  
   // The below set of helpers will help us to put together the wifi NICs we want
   WifiHelper wifi;
   if(verbose){
@@ -192,25 +168,26 @@ int main(int argc, char *argv[]){
                                 "ControlMode",StringValue(phyMode));
   // Set it to adhoc mode
   wifiMac.SetType("ns3::AdhocWifiMac");
-  NetDeviceContainer devices = wifi.Install(wifiPhy, wifiMac, robots);
+  NetDeviceContainer devices = wifi.Install(wifiPhy, wifiMac, agents);
 
   // Note that with FixedRssLossModel, the positions below are not
   // used for received signal strength.
+
   // Robot Positions
   MobilityHelper mobilityRobots;
   Ptr<ListPositionAllocator> positionAllocRobots = CreateObject<ListPositionAllocator>();
-  for(int i = 0; i < numRobots; i++){
-    positionAllocRobots->Add(Vector(150 + 5*i, fRand(minMap, maxMap), 0.0));
+  for(int i = 0; i < numAgents; i++){
+    positionAllocRobots->Add(Vector(fRand(minPosition, maxPosition), fRand(minPosition, maxPosition), 0.0));
   }
   mobilityRobots.SetPositionAllocator(positionAllocRobots);
   mobilityRobots.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-  mobilityRobots.Install(robots);
+  mobilityRobots.Install(agents);
 
   // Task Positions
   MobilityHelper mobilityTasks;
   Ptr<ListPositionAllocator> positionAllocTasks = CreateObject<ListPositionAllocator>();
   for(int i = 0; i < numTasks; i++){
-    positionAllocTasks->Add(Vector(150 + 5*i, fRand(minMap, maxMap), 0.0));
+    positionAllocTasks->Add(Vector(fRand(minPosition, maxPosition), fRand(minPosition, maxPosition), 0.0));
     // Ptr<Node> node = tasks.Get(i);
     // doesn't currently change color correctly
     // AnimationInterface* ya = new AnimationInterface("dynamic_linknode.xml");
@@ -220,8 +197,39 @@ int main(int argc, char *argv[]){
   mobilityTasks.SetMobilityModel("ns3::ConstantPositionMobilityModel");
   mobilityTasks.Install(tasks);
 
+  
+  vector<Agent*> halfAgents = create_agents();
+  
+  for(int i = 0; i < numAgents; i++){
+    AgentNode newAgentNode;
+    newAgentNode.node = agents.Get(i);
+    //std::cout << halfAgents.at(i).agent_id << std::endl;
+    newAgentNode.agent = halfAgents.at(i);
+    //set position
+    Vector pos = GetPosition(newAgentNode.node);
+    newAgentNode.agent->agent_position = pos;
+    newAgentNode.agent->initialize_known_positions();
+    //set id
+    newAgentNode.agent->agent_id = newAgentNode.node->GetId();
+
+    allAgents.push_back(newAgentNode);
+  }
+
+  
+  for(int i = 0; i < numTasks; i++){
+    TaskNode newTaskNode;
+    newTaskNode.node = tasks.Get(i);
+    newTaskNode.task = new Task();
+    //set position
+    Vector pos = GetPosition(newTaskNode.node);
+    newTaskNode.task->task_location = pos;
+    //set id
+    newTaskNode.task->task_id = newTaskNode.node->GetId();
+    allTasks.push_back(newTaskNode);
+  }
+
   InternetStackHelper internet;
-  internet.Install(robots);
+  internet.Install(agents);
 
   Ipv4AddressHelper ipv4;
   NS_LOG_INFO("Assign IP Addresses.");
@@ -230,21 +238,11 @@ int main(int argc, char *argv[]){
   
   TypeId tid = TypeId::LookupByName("ns3::UdpSocketFactory");
 
-  // for(int i = 0; i < numRobots; i++){
-  //   Ptr<Socket> recvSink = Socket::CreateSocket(robots.Get(i), tid);
-  //   InetSocketAddress local = InetSocketAddress(Ipv4Address::GetAny(), 80);
-  //   recvSink->Bind(local);
-  //   recvSink->SetRecvCallback(MakeCallback(&ReceivePacket));
-  // }
-  
   // Tracing
   wifiPhy.EnablePcap("wifi-simple-adhoc", devices);
 
-  // Output what we are doing
-  NS_LOG_UNCOND("Testing " << numPackets  << " packets sent with receiver rss " << rss );
-
-  Simulator::Schedule(Seconds(1.0), &BroadcastMessage, "hello", 0, robots, tid, interface);
-
+  //Simulator::Schedule(Seconds(1.0), &BroadcastMessage, "hello", 0, agents, tid, interface);
+  Simulator::Schedule(Seconds(0.5), &haydensMethod, allTasks, allAgents, tid, interface);
   Simulator::Run();
   Simulator::Destroy();
 

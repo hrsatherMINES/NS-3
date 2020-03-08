@@ -178,7 +178,7 @@ RoutingExperiment::SetupPacketReceive (Ipv4Address addr, Ptr<Node> node)
   TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
   Ptr<Socket> sink = Socket::CreateSocket (node, tid);
   InetSocketAddress local = InetSocketAddress (addr, port);
-  sink->Bind (local);
+  std::cout << sink->Bind (local) << std::endl;
   sink->SetRecvCallback (MakeCallback (&RoutingExperiment::ReceivePacket, this));
 
   return sink;
