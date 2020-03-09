@@ -1,22 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-/*
- * Copyright(c) 2009 The Boeing Company
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation;
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- *
- */
-
 #include "ns3/command-line.h"
 #include "ns3/config.h"
 #include "ns3/double.h"
@@ -32,6 +13,7 @@
 #include "ns3/structs.h"
 #include "ns3/agent.h"
 #include "ns3/globalInfo.h"
+#include "ns3/debuggingFunctions.h"
 #include <iostream>
 
 using namespace ns3;
@@ -41,57 +23,40 @@ NS_LOG_COMPONENT_DEFINE("WifiSimpleAdhoc");
 bool start = false;
 
 void haydensMethod(std::vector<TaskNode> allTasks, std::vector<AgentNode> allAgents, Ipv4InterfaceContainer interface){
-  
+  globalInfo::numMoves++;
+
+  //Process costs
   calculate_all_costs(allTasks, allAgents);
-
   fillAllLocalCosts(allAgents);
-
-  // comm_g = create_init_comm_graph(allAgents);
   
-  // determine_connected_components(allAgents, comm_g);
-  
-  fill_in_component_arrs(allAgents);
-  
+  //Different heuristics for requests
   initialize_all_needed_info(allAgents);
   initialize_all_requests(allAgents);
   
+  //send all requests and info
   initial_request_sharing(allAgents, interface);
-  bool conflicts = conflicts_exist(allAgents);
-  
-  
-  if(!conflicts && all_agents_assigned(allAgents)){
-      std::cout << "SUCCESSFUL: No conflicts, all agents are assigned" << std::endl;
-      exit(0);
-      return;
-  }
-  
-  if(conflicts){
-      std::cout << "Conflicts Exist" << std::endl;
-  }
-
-  // if(agent_leaving_connection(all_a)){
-  //     send_all_info = true;
-  // }
-
   all_send_position_info(allAgents, interface);
+
+  //Determine and excecute movements
   compute_all_parital_assignments_hungarian(allAgents, allTasks);
-  
   determine_assigned_location(allAgents, allTasks);
+  move_all_agents_towards_goal_step(allAgents);
+
+  //Check if all tasks assigned
+  checkIfDone(allAgents);
 
   //print all agents positions
-  for(unsigned long int i = 0; i < allAgents.size(); i++){
-      allAgents[i].agent->print_position();
-      std::cout << " ";
-      allAgents[i].agent->print_assigned_position();
-      // allAgents[i].agent->print_agent_costs();
-      // print_known_positions(allAgents[i]);
-      // allAgents[i].agent->print_known_info();
-      print_known_positions(allAgents[i]);
-  }
-  std::cout << std::endl;
+  // for(unsigned long int i = 0; i < allAgents.size(); i++){
+  //     allAgents[i].agent->print_position();
+  //     std::cout << " ";
+  //     allAgents[i].agent->print_assigned_position();
+  //     // allAgents[i].agent->print_agent_costs();
+  //     // print_known_positions(allAgents[i]);
+  //     // allAgents[i].agent->print_known_info();
+  //     print_known_positions(allAgents[i]);
+  // }
+  // std::cout << std::endl;
 
-  move_all_agents_towards_goal_step(allAgents);
-  
   Simulator::Schedule(Seconds(0.5), &haydensMethod, allTasks, allAgents, interface);
 }
 
@@ -100,6 +65,7 @@ void haydensMethod(std::vector<TaskNode> allTasks, std::vector<AgentNode> allAge
 int main(int argc, char *argv[]){
   srand(1);
   globalInfo::numAgents = 10;
+  globalInfo::numMoves = 0;
   int numTasks = globalInfo::numAgents;
   double speed = 5.0;
   std::string phyMode("DsssRate1Mbps");
