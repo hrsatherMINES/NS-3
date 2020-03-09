@@ -29,6 +29,9 @@
 #include "ns3/mobility-model.h"
 #include "ns3/internet-stack-helper.h"
 #include "ns3/disconnected.h"
+#include "ns3/structs.h"
+#include "ns3/agent.h"
+#include "ns3/globalInfo.h"
 #include <iostream>
 
 using namespace ns3;
@@ -38,14 +41,14 @@ NS_LOG_COMPONENT_DEFINE("WifiSimpleAdhoc");
 bool start = false;
 
 void haydensMethod(std::vector<TaskNode> allTasks, std::vector<AgentNode> allAgents, Ipv4InterfaceContainer interface){
+  
   calculate_all_costs(allTasks, allAgents);
 
-  costMatrix = create_cmatrix(allAgents);
   fillAllLocalCosts(allAgents);
 
-  comm_g = create_init_comm_graph(allAgents);
+  // comm_g = create_init_comm_graph(allAgents);
   
-  determine_connected_components(allAgents, comm_g);
+  // determine_connected_components(allAgents, comm_g);
   
   fill_in_component_arrs(allAgents);
   
@@ -58,6 +61,7 @@ void haydensMethod(std::vector<TaskNode> allTasks, std::vector<AgentNode> allAge
   
   if(!conflicts && all_agents_assigned(allAgents)){
       std::cout << "SUCCESSFUL: No conflicts, all agents are assigned" << std::endl;
+      exit(0);
       return;
   }
   
@@ -92,28 +96,29 @@ void haydensMethod(std::vector<TaskNode> allTasks, std::vector<AgentNode> allAge
 }
 
 
+
 int main(int argc, char *argv[]){
   srand(1);
-  numAgents = 10;
-  numTasks = numAgents;
-  speed = 5.0;
+  globalInfo::numAgents = 10;
+  int numTasks = globalInfo::numAgents;
+  double speed = 5.0;
   std::string phyMode("DsssRate1Mbps");
   double rss = -80;  // -dBm
   double interval = 1.0; // seconds
   bool verbose = false;
-  time_period = 2; // idk
-  agent_velocity = speed;
-  num_instrument_classes = 1;
-  agents_per_class  = numAgents; //make sure not fractional
-  minPosition = 0.0;
-  maxPosition = 400.0;
-  comm_thresh = 120;
-  maxCharsSent = 10;
+  //int num_instrument_classes = 1;
+  globalInfo::agents_per_class  = globalInfo::numAgents; //make sure not fractional
+  int minPosition = 0.0;
+  int maxPosition = 400.0;
 
-  std::vector<int> temp2(numAgents, 0);
-  instrument_assignment = temp2;
+  //set global info
+  // globalInfo::allAgents;
+  // globalInfo::allTasks;
+  // globalInfo::instrument_assignment;
+  // globalInfo::agents_per_clas;
+  std::vector<int> temp(globalInfo::numAgents, 0);
+  globalInfo::instrument_assignment = temp;
  
-
   CommandLine cmd;
   cmd.AddValue("phyMode", "Wifi Phy mode", phyMode);
   cmd.AddValue("rss", "received signal strength", rss);
@@ -128,7 +133,7 @@ int main(int argc, char *argv[]){
                       StringValue(phyMode));
 
   NodeContainer agents;
-  agents.Create(numAgents);
+  agents.Create(globalInfo::numAgents);
 
   NodeContainer tasks;
   tasks.Create(numTasks);
@@ -165,17 +170,15 @@ int main(int argc, char *argv[]){
 
   // Note that with FixedRssLossModel, the positions below are not
   // used for received signal strength.
-
   // Robot Positions
   MobilityHelper mobilityRobots;
   Ptr<ListPositionAllocator> positionAllocRobots = CreateObject<ListPositionAllocator>();
-  for(int i = 0; i < numAgents; i++){
+  for(int i = 0; i < globalInfo::numAgents; i++){
     positionAllocRobots->Add(Vector(fRand(minPosition, maxPosition), fRand(minPosition, maxPosition), 0.0));
   }
   mobilityRobots.SetPositionAllocator(positionAllocRobots);
   mobilityRobots.SetMobilityModel("ns3::ConstantPositionMobilityModel");
   mobilityRobots.Install(agents);
-
   // Task Positions
   MobilityHelper mobilityTasks;
   Ptr<ListPositionAllocator> positionAllocTasks = CreateObject<ListPositionAllocator>();
@@ -189,14 +192,11 @@ int main(int argc, char *argv[]){
   mobilityTasks.SetPositionAllocator(positionAllocTasks);
   mobilityTasks.SetMobilityModel("ns3::ConstantPositionMobilityModel");
   mobilityTasks.Install(tasks);
-
-  
   vector<Agent*> halfAgents = create_agents();
   
-  for(int i = 0; i < numAgents; i++){
+  for(int i = 0; i < globalInfo::numAgents; i++){
     AgentNode newAgentNode;
     newAgentNode.node = agents.Get(i);
-    //std::cout << halfAgents.at(i).agent_id << std::endl;
     newAgentNode.agent = halfAgents.at(i);
     //set position
     Vector pos = GetPosition(newAgentNode.node);
@@ -204,11 +204,13 @@ int main(int argc, char *argv[]){
     newAgentNode.agent->initialize_known_positions();
     //set id
     newAgentNode.agent->agent_id = newAgentNode.node->GetId();
+    newAgentNode.agent->set_speed(speed);
+    newAgentNode.agent->set_num_agents(globalInfo::numAgents);
+    newAgentNode.agent->set_num_tasks(numTasks);
 
-    allAgents.push_back(newAgentNode);
+    globalInfo::allAgents.push_back(newAgentNode);
   }
 
-  
   for(int i = 0; i < numTasks; i++){
     TaskNode newTaskNode;
     newTaskNode.node = tasks.Get(i);
@@ -218,7 +220,7 @@ int main(int argc, char *argv[]){
     newTaskNode.task->task_location = pos;
     //set id
     newTaskNode.task->task_id = newTaskNode.node->GetId();
-    allTasks.push_back(newTaskNode);
+    globalInfo::allTasks.push_back(newTaskNode);
   }
 
   InternetStackHelper internet;
@@ -233,8 +235,8 @@ int main(int argc, char *argv[]){
   wifiPhy.EnablePcap("wifi-simple-adhoc", devices);
 
   // Create sockets
-  for(int i = 0; i < numAgents; i++){
-    Ptr<Socket> recvSink = Socket::CreateSocket(allAgents.at(i).node, UdpSocketFactory::GetTypeId ());
+  for(int i = 0; i < globalInfo::numAgents; i++){
+    Ptr<Socket> recvSink = Socket::CreateSocket(globalInfo::allAgents.at(i).node, UdpSocketFactory::GetTypeId ());
     InetSocketAddress local = InetSocketAddress(Ipv4Address::GetAny (), 80);
     if(recvSink->Bind(local) == -1){
       recvSink->Close();
@@ -243,7 +245,7 @@ int main(int argc, char *argv[]){
     recvSink->SetRecvCallback(MakeCallback(&ReceivePacket));
   }
 
-  Simulator::Schedule(Seconds(0.5), &haydensMethod, allTasks, allAgents, interface);
+  Simulator::Schedule(Seconds(0.5), &haydensMethod, globalInfo::allTasks, globalInfo::allAgents, interface);
   Simulator::Run();
   Simulator::Destroy();
 
