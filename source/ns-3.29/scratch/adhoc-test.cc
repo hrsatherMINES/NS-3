@@ -25,35 +25,42 @@ bool start = false;
 void haydensMethod(std::vector<TaskNode> allTasks, std::vector<AgentNode> allAgents, Ipv4InterfaceContainer interface){
   globalInfo::numMoves++;
 
-  //Process costs
-  calculate_all_costs(allTasks, allAgents);
-  fillAllLocalCosts(allAgents);
-  
-  //Different heuristics for requests
-  initialize_all_needed_info(allAgents);
-  initialize_all_requests(allAgents);
-  
-  //send all requests and info
-  initial_request_sharing(allAgents, interface);
-  all_send_position_info(allAgents, interface);
+  if(globalInfo::counter == 4){
+    globalInfo::counter = 0;
 
-  //Determine and excecute movements
-  compute_all_parital_assignments_hungarian(allAgents, allTasks);
-  determine_assigned_location(allAgents, allTasks);
+    //Process costs
+    calculate_all_costs(allTasks, allAgents);
+    fillAllLocalCosts(allAgents);
+    
+    //Different heuristics for requests
+    determine_all_needed_info_original(allAgents);
+    // Prepare requests
+    initialize_all_requests(allAgents);
+    
+    //send all requests and info
+    initial_request_sharing(allAgents, interface);
+    all_send_position_info(allAgents, interface);
+
+    //Determine and movements movements
+    compute_all_parital_assignments_hungarian(allAgents, allTasks);
+    determine_assigned_location(allAgents, allTasks);
+    
+  }
   move_all_agents_towards_goal_step(allAgents);
 
   //Check if all tasks assigned
   checkIfDone(allAgents);
+  globalInfo::counter++;
 
   //print all agents positions
   // for(unsigned long int i = 0; i < allAgents.size(); i++){
-  //     allAgents[i].agent->print_position();
-  //     std::cout << " ";
-  //     allAgents[i].agent->print_assigned_position();
-  //     // allAgents[i].agent->print_agent_costs();
-  //     // print_known_positions(allAgents[i]);
-  //     // allAgents[i].agent->print_known_info();
-  //     print_known_positions(allAgents[i]);
+  //     if(i == 1 || i == 8){
+  //       allAgents[i].agent->print_position();
+  //       std::cout << " ";
+  //       allAgents[i].agent->print_assigned_position();
+  //       allAgents.at(i).agent->print_needed_info();
+  //       print_known_positions(allAgents[i]);
+  //     }
   // }
   // std::cout << std::endl;
 
@@ -61,16 +68,15 @@ void haydensMethod(std::vector<TaskNode> allTasks, std::vector<AgentNode> allAge
 }
 
 
-
 int main(int argc, char *argv[]){
+  globalInfo::counter = 0;
   srand(1);
-  globalInfo::numAgents = 10;
+  globalInfo::numAgents = 9;
   globalInfo::numMoves = 0;
   int numTasks = globalInfo::numAgents;
   double speed = 5.0;
   std::string phyMode("DsssRate1Mbps");
   double rss = -80;  // -dBm
-  double interval = 1.0; // seconds
   bool verbose = false;
   //int num_instrument_classes = 1;
   globalInfo::agents_per_class  = globalInfo::numAgents; //make sure not fractional
@@ -88,11 +94,8 @@ int main(int argc, char *argv[]){
   CommandLine cmd;
   cmd.AddValue("phyMode", "Wifi Phy mode", phyMode);
   cmd.AddValue("rss", "received signal strength", rss);
-  cmd.AddValue("interval", "interval(seconds) between packets", interval);
   cmd.AddValue("verbose", "turn on all WifiNetDevice log components", verbose);
   cmd.Parse(argc, argv);
-  // Convert to time object
-  Time interPacketInterval = Seconds(interval);
 
   // Fix non-unicast data rate to be the same as that of unicast
   Config::SetDefault("ns3::WifiRemoteStationManager::NonUnicastMode",
