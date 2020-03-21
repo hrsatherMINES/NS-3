@@ -25,34 +25,42 @@ bool start = false;
 void haydensMethod(std::vector<TaskNode> allTasks, std::vector<AgentNode> allAgents, Ipv4InterfaceContainer interface){
   globalInfo::numMoves++;
 
-  if(globalInfo::counter == 4){
-    globalInfo::counter = 0;
+  // if(globalInfo::counter == 4){
+  //   globalInfo::counter = 0;
 
-    //Process costs
+    // Process costs
     calculate_all_costs(allTasks, allAgents);
     fillAllLocalCosts(allAgents);
     
-    //Different heuristics for requests
-    determine_all_needed_info_original(allAgents);
+    // Different heuristics for requests CHANGE HERE ***
+    determine_all_needed_info_both_moving(allAgents);
+    // CHANGE HERE *************************************
+
     // Prepare requests
     initialize_all_requests(allAgents);
+    // Add own request to request list
+    add_own_request_to_request_list(allAgents);
     
-    //send all requests and info
-    initial_request_sharing(allAgents, interface);
+    // Send all requests and info
+    all_send_requests(allAgents, interface);
     all_send_position_info(allAgents, interface);
 
-    //Determine and movements movements
+    // Merge all requests
+    merge_all_received_requests(allAgents);
+    // Clear requests after processing
+
+    // Determine and movements movements
     compute_all_parital_assignments_hungarian(allAgents, allTasks);
     determine_assigned_location(allAgents, allTasks);
     
-  }
+  // }
   move_all_agents_towards_goal_step(allAgents);
 
   //Check if all tasks assigned
   checkIfDone(allAgents);
   globalInfo::counter++;
 
-  //print all agents positions
+  //print agent info debugging
   // for(unsigned long int i = 0; i < allAgents.size(); i++){
   //     if(i == 1 || i == 8){
   //       allAgents[i].agent->print_position();
@@ -62,18 +70,20 @@ void haydensMethod(std::vector<TaskNode> allTasks, std::vector<AgentNode> allAge
   //       print_known_positions(allAgents[i]);
   //     }
   // }
-  // std::cout << std::endl;
+  std::cout << std::endl;
 
   Simulator::Schedule(Seconds(0.5), &haydensMethod, allTasks, allAgents, interface);
 }
 
 
 int main(int argc, char *argv[]){
+  srand(0);
+  globalInfo::totalMessagesReceived = 0;
   globalInfo::counter = 0;
-  srand(1);
-  globalInfo::numAgents = 9;
+  globalInfo::probabilityDropped = 50;
+  globalInfo::numAgents = 10;
   globalInfo::numMoves = 0;
-  int numTasks = globalInfo::numAgents;
+  globalInfo::numTasks = globalInfo::numAgents;
   double speed = 5.0;
   std::string phyMode("DsssRate1Mbps");
   double rss = -80;  // -dBm
@@ -81,9 +91,9 @@ int main(int argc, char *argv[]){
   //int num_instrument_classes = 1;
   globalInfo::agents_per_class  = globalInfo::numAgents; //make sure not fractional
   int minPosition = 0.0;
-  int maxPosition = 400.0;
+  int maxPosition = 200.0;
 
-  //set global info
+  // Set global info
   // globalInfo::allAgents;
   // globalInfo::allTasks;
   // globalInfo::instrument_assignment;
@@ -105,7 +115,7 @@ int main(int argc, char *argv[]){
   agents.Create(globalInfo::numAgents);
 
   NodeContainer tasks;
-  tasks.Create(numTasks);
+  tasks.Create(globalInfo::numTasks);
   
   // The below set of helpers will help us to put together the wifi NICs we want
   WifiHelper wifi;
@@ -151,7 +161,7 @@ int main(int argc, char *argv[]){
   // Task Positions
   MobilityHelper mobilityTasks;
   Ptr<ListPositionAllocator> positionAllocTasks = CreateObject<ListPositionAllocator>();
-  for(int i = 0; i < numTasks; i++){
+  for(int i = 0; i < globalInfo::numTasks; i++){
     positionAllocTasks->Add(Vector(fRand(minPosition, maxPosition), fRand(minPosition, maxPosition), 0.0));
     // Ptr<Node> node = tasks.Get(i);
     // doesn't currently change color correctly
@@ -167,27 +177,27 @@ int main(int argc, char *argv[]){
     AgentNode newAgentNode;
     newAgentNode.node = agents.Get(i);
     newAgentNode.agent = halfAgents.at(i);
-    //set position
+    // Set position
     Vector pos = GetPosition(newAgentNode.node);
     newAgentNode.agent->agent_position = pos;
     newAgentNode.agent->initialize_known_positions();
-    //set id
+    // Set id
     newAgentNode.agent->agent_id = newAgentNode.node->GetId();
     newAgentNode.agent->set_speed(speed);
     newAgentNode.agent->set_num_agents(globalInfo::numAgents);
-    newAgentNode.agent->set_num_tasks(numTasks);
+    newAgentNode.agent->set_num_tasks(globalInfo::numTasks);
 
     globalInfo::allAgents.push_back(newAgentNode);
   }
 
-  for(int i = 0; i < numTasks; i++){
+  for(int i = 0; i < globalInfo::numTasks; i++){
     TaskNode newTaskNode;
     newTaskNode.node = tasks.Get(i);
     newTaskNode.task = new Task();
-    //set position
+    // Set position
     Vector pos = GetPosition(newTaskNode.node);
     newTaskNode.task->task_location = pos;
-    //set id
+    // Set id
     newTaskNode.task->task_id = newTaskNode.node->GetId();
     globalInfo::allTasks.push_back(newTaskNode);
   }
