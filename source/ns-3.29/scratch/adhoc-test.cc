@@ -29,32 +29,32 @@ void haydensMethod(std::vector<TaskNode> allTasks, std::vector<AgentNode> allAge
   //   globalInfo::counter = 0;
 
     // Process costs
-    calculate_all_costs(allTasks, allAgents);
+    calculateAllCosts(allTasks, allAgents);
     fillAllLocalCosts(allAgents);
     
     // Different heuristics for requests CHANGE HERE ***
-    determine_all_needed_info_both_moving(allAgents);
+    determineAllNeededInfoDistanceMoving(allAgents);
     // CHANGE HERE *************************************
 
     // Prepare requests
-    initialize_all_requests(allAgents);
+    initializeAllRequests(allAgents);
     // Add own request to request list
-    add_own_request_to_request_list(allAgents);
+    addOwnRequestToRequestList(allAgents);
     
     // Send all requests and info
-    all_send_requests(allAgents, interface);
-    all_send_position_info(allAgents, interface);
+    allSendRequests(allAgents, interface);
+    allSendPositionInfo(allAgents, interface);
 
     // Merge all requests
-    merge_all_received_requests(allAgents);
+    mergeAllReceivedRequests(allAgents);
     // Clear requests after processing
 
     // Determine and movements movements
-    compute_all_parital_assignments_hungarian(allAgents, allTasks);
-    determine_assigned_location(allAgents, allTasks);
+    computeAllParitalAssignmentsHungarian(allAgents, allTasks);
+    determineAssignedLocation(allAgents, allTasks);
     
   // }
-  move_all_agents_towards_goal_step(allAgents);
+  moveAllAgentsTowardsGoalStep(allAgents);
 
   //Check if all tasks assigned
   checkIfDone(allAgents);
@@ -63,11 +63,11 @@ void haydensMethod(std::vector<TaskNode> allTasks, std::vector<AgentNode> allAge
   //print agent info debugging
   // for(unsigned long int i = 0; i < allAgents.size(); i++){
   //     if(i == 1 || i == 8){
-  //       allAgents[i].agent->print_position();
+  //       allAgents[i].agent->printPosition();
   //       std::cout << " ";
-  //       allAgents[i].agent->print_assigned_position();
-  //       allAgents.at(i).agent->print_needed_info();
-  //       print_known_positions(allAgents[i]);
+  //       allAgents[i].agent->printAssignedPosition();
+  //       allAgents.at(i).agent->printNeededInfo();
+  //       printKnownPositions(allAgents[i]);
   //     }
   // }
   std::cout << std::endl;
@@ -88,18 +88,14 @@ int main(int argc, char *argv[]){
   std::string phyMode("DsssRate1Mbps");
   double rss = -80;  // -dBm
   bool verbose = false;
-  //int num_instrument_classes = 1;
-  globalInfo::agents_per_class  = globalInfo::numAgents; //make sure not fractional
+  int numInstrumentClasses = 1;
+  globalInfo::agentsPerClass  = globalInfo::numAgents / numInstrumentClasses; // Make sure not fractional
   int minPosition = 0.0;
   int maxPosition = 200.0;
+  globalInfo::maxPositionDistance = sqrt(2*((maxPosition - minPosition) * (maxPosition - minPosition)));
 
-  // Set global info
-  // globalInfo::allAgents;
-  // globalInfo::allTasks;
-  // globalInfo::instrument_assignment;
-  // globalInfo::agents_per_clas;
   std::vector<int> temp(globalInfo::numAgents, 0);
-  globalInfo::instrument_assignment = temp;
+  globalInfo::instrumentAssignment = temp;
  
   CommandLine cmd;
   cmd.AddValue("phyMode", "Wifi Phy mode", phyMode);
@@ -153,7 +149,7 @@ int main(int argc, char *argv[]){
   MobilityHelper mobilityRobots;
   Ptr<ListPositionAllocator> positionAllocRobots = CreateObject<ListPositionAllocator>();
   for(int i = 0; i < globalInfo::numAgents; i++){
-    positionAllocRobots->Add(Vector(fRand(minPosition, maxPosition), fRand(minPosition, maxPosition), 0.0));
+    positionAllocRobots->Add(Vector(randomDouble(minPosition, maxPosition), randomDouble(minPosition, maxPosition), 0.0));
   }
   mobilityRobots.SetPositionAllocator(positionAllocRobots);
   mobilityRobots.SetMobilityModel("ns3::ConstantPositionMobilityModel");
@@ -162,7 +158,7 @@ int main(int argc, char *argv[]){
   MobilityHelper mobilityTasks;
   Ptr<ListPositionAllocator> positionAllocTasks = CreateObject<ListPositionAllocator>();
   for(int i = 0; i < globalInfo::numTasks; i++){
-    positionAllocTasks->Add(Vector(fRand(minPosition, maxPosition), fRand(minPosition, maxPosition), 0.0));
+    positionAllocTasks->Add(Vector(randomDouble(minPosition, maxPosition), randomDouble(minPosition, maxPosition), 0.0));
     // Ptr<Node> node = tasks.Get(i);
     // doesn't currently change color correctly
     // AnimationInterface* ya = new AnimationInterface("dynamic_linknode.xml");
@@ -171,21 +167,21 @@ int main(int argc, char *argv[]){
   mobilityTasks.SetPositionAllocator(positionAllocTasks);
   mobilityTasks.SetMobilityModel("ns3::ConstantPositionMobilityModel");
   mobilityTasks.Install(tasks);
-  vector<Agent*> halfAgents = create_agents();
+  vector<Agent*> halfAgents = createAgents();
   
   for(int i = 0; i < globalInfo::numAgents; i++){
     AgentNode newAgentNode;
     newAgentNode.node = agents.Get(i);
     newAgentNode.agent = halfAgents.at(i);
     // Set position
-    Vector pos = GetPosition(newAgentNode.node);
-    newAgentNode.agent->agent_position = pos;
-    newAgentNode.agent->initialize_known_positions();
+    Vector pos = getPosition(newAgentNode.node);
+    newAgentNode.agent->agentPosition = pos;
+    newAgentNode.agent->initializeKnownPositions();
     // Set id
-    newAgentNode.agent->agent_id = newAgentNode.node->GetId();
-    newAgentNode.agent->set_speed(speed);
-    newAgentNode.agent->set_num_agents(globalInfo::numAgents);
-    newAgentNode.agent->set_num_tasks(globalInfo::numTasks);
+    newAgentNode.agent->agentId = newAgentNode.node->GetId();
+    newAgentNode.agent->setSpeed(speed);
+    newAgentNode.agent->setNumAgents(globalInfo::numAgents);
+    newAgentNode.agent->setNumTasks(globalInfo::numTasks);
 
     globalInfo::allAgents.push_back(newAgentNode);
   }
@@ -195,10 +191,10 @@ int main(int argc, char *argv[]){
     newTaskNode.node = tasks.Get(i);
     newTaskNode.task = new Task();
     // Set position
-    Vector pos = GetPosition(newTaskNode.node);
-    newTaskNode.task->task_location = pos;
+    Vector pos = getPosition(newTaskNode.node);
+    newTaskNode.task->taskLocation = pos;
     // Set id
-    newTaskNode.task->task_id = newTaskNode.node->GetId();
+    newTaskNode.task->taskId = newTaskNode.node->GetId();
     globalInfo::allTasks.push_back(newTaskNode);
   }
 
