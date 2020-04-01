@@ -23,73 +23,72 @@ NS_LOG_COMPONENT_DEFINE("WifiSimpleAdhoc");
 bool start = false;
 
 void haydensMethod(std::vector<TaskNode> allTasks, std::vector<AgentNode> allAgents, Ipv4InterfaceContainer interface){
-  globalInfo::numMoves++;
+  // //calculateCostsAndPrepareRequests{
+  //   globalInfo::numMoves++;
 
-  // if(globalInfo::counter == 4){
-  //   globalInfo::counter = 0;
-
-    // Process costs
-    calculateAllCosts(allTasks, allAgents);
-    fillAllLocalCosts(allAgents);
+  //   // Process costs
+  //   calculateAllCosts(allTasks, allAgents);
+  //   fillAllLocalCosts(allAgents);
     
-    // Different heuristics for requests CHANGE HERE ***
-    determineAllNeededInfoDistanceMoving(allAgents);
-    // CHANGE HERE *************************************
+  //   // Different heuristics for requests CHANGE HERE ***
+  //   determineAllNeededInfoInferTaskAndMoving(allAgents);
+  //   // CHANGE HERE *************************************
 
-    // Prepare requests
-    initializeAllRequests(allAgents);
-    // Add own request to request list
-    addOwnRequestToRequestList(allAgents);
-    
-    // Send all requests and info
-    allSendRequests(allAgents, interface);
-    allSendPositionInfo(allAgents, interface);
+  //   // Prepare requests
+  //   initializeAllRequests(allAgents);
+  //   // Add own request to request list
+  //   addOwnRequestToRequestList(allAgents);
+  // //}
+  
+  // // Send all requests
+  // allSendRequestsScheduled(allAgents, interface);
+  // // Merge all positions
+  // mergeAllPositionInfo(allAgents, interface);
+  // // Send all position info
+  // allSendPositionInfo(allAgents, interface);
 
-    // Merge all requests
-    mergeAllReceivedRequests(allAgents);
-    // Clear requests after processing
+  // // processAndMove{
+  //   // Merge all requests
+  //   mergeAllReceivedRequests(allAgents);
 
-    // Determine and movements movements
-    computeAllParitalAssignmentsHungarian(allAgents, allTasks);
-    determineAssignedLocation(allAgents, allTasks);
-    
-  // }
-  moveAllAgentsTowardsGoalStep(allAgents);
+  //   // Determine and movements movements
+  //   computeAllParitalAssignmentsHungarian(allAgents, allTasks);
+  //   determineAssignedLocation(allAgents, allTasks);
+      
+  //   moveAllAgentsTowardsGoalStep(allAgents);
 
-  //Check if all tasks assigned
-  checkIfDone(allAgents);
-  globalInfo::counter++;
+  //   // Check if all tasks assigned
+  //   checkIfDone(allAgents);
+  //   globalInfo::counter++;
 
-  //print agent info debugging
-  // for(unsigned long int i = 0; i < allAgents.size(); i++){
-  //     if(i == 1 || i == 8){
-  //       allAgents[i].agent->printPosition();
-  //       std::cout << " ";
-  //       allAgents[i].agent->printAssignedPosition();
-  //       allAgents.at(i).agent->printNeededInfo();
-  //       printKnownPositions(allAgents[i]);
-  //     }
-  // }
-  std::cout << std::endl;
-
-  Simulator::Schedule(Seconds(0.5), &haydensMethod, allTasks, allAgents, interface);
+  //   // Print agent info debugging
+  //   // for(unsigned long int i = 0; i < allAgents.size(); i++){
+  //   //     if(i == 3){
+  //   //       allAgents[i].agent->printPosition();
+  //   //       std::cout << " ";
+  //   //       allAgents[i].agent->printAssignedPosition();
+  //   //       allAgents.at(i).agent->printNeededInfo();
+  //   //       printKnownPositions(allAgents[i]);
+  //   //     }
+  //   // }
+  //   std::cout << "Number of dropped packets: " << totalNumRequestMessagesSent(allAgents) + totalNumPositionMessagesSent(allAgents) - globalInfo::totalMessagesReceived << std::endl;
+  //}
 }
 
-
 int main(int argc, char *argv[]){
-  srand(0);
+  srand(10);
   globalInfo::totalMessagesReceived = 0;
   globalInfo::counter = 0;
   globalInfo::probabilityDropped = 50;
   globalInfo::numAgents = 10;
   globalInfo::numMoves = 0;
   globalInfo::numTasks = globalInfo::numAgents;
-  double speed = 5.0;
+  double speed = 3.0;
   std::string phyMode("DsssRate1Mbps");
   double rss = -80;  // -dBm
   bool verbose = false;
   int numInstrumentClasses = 1;
-  globalInfo::agentsPerClass  = globalInfo::numAgents / numInstrumentClasses; // Make sure not fractional
+  globalInfo::agentsPerClass  = globalInfo::numAgents / numInstrumentClasses;  // Make sure not fractional
   int minPosition = 0.0;
   int maxPosition = 200.0;
   globalInfo::maxPositionDistance = sqrt(2*((maxPosition - minPosition) * (maxPosition - minPosition)));
@@ -220,8 +219,7 @@ int main(int argc, char *argv[]){
     recvSink->SetRecvCallback(MakeCallback(&ReceivePacket));
   }
 
-  Simulator::Schedule(Seconds(0.5), &haydensMethod, globalInfo::allTasks, globalInfo::allAgents, interface);
-  Simulator::Run();
+  Simulator::Schedule(Seconds(1), &calculateCostsAndPrepareRequests, globalInfo::allAgents, globalInfo::allTasks, interface);  Simulator::Run();
   Simulator::Destroy();
 
   return 0;
