@@ -20,82 +20,34 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("WifiSimpleAdhoc");
 
-bool start = false;
-
-void haydensMethod(std::vector<TaskNode> allTasks, std::vector<AgentNode> allAgents, Ipv4InterfaceContainer interface){
-  // //calculateCostsAndPrepareRequests{
-  //   globalInfo::numMoves++;
-
-  //   // Process costs
-  //   calculateAllCosts(allTasks, allAgents);
-  //   fillAllLocalCosts(allAgents);
-    
-  //   // Different heuristics for requests CHANGE HERE ***
-  //   determineAllNeededInfoInferTaskAndMoving(allAgents);
-  //   // CHANGE HERE *************************************
-
-  //   // Prepare requests
-  //   initializeAllRequests(allAgents);
-  //   // Add own request to request list
-  //   addOwnRequestToRequestList(allAgents);
-  // //}
-  
-  // // Send all requests
-  // allSendRequestsScheduled(allAgents, interface);
-  // // Merge all positions
-  // mergeAllPositionInfo(allAgents, interface);
-  // // Send all position info
-  // allSendPositionInfo(allAgents, interface);
-
-  // // processAndMove{
-  //   // Merge all requests
-  //   mergeAllReceivedRequests(allAgents);
-
-  //   // Determine and movements movements
-  //   computeAllParitalAssignmentsHungarian(allAgents, allTasks);
-  //   determineAssignedLocation(allAgents, allTasks);
-      
-  //   moveAllAgentsTowardsGoalStep(allAgents);
-
-  //   // Check if all tasks assigned
-  //   checkIfDone(allAgents);
-  //   globalInfo::counter++;
-
-  //   // Print agent info debugging
-  //   // for(unsigned long int i = 0; i < allAgents.size(); i++){
-  //   //     if(i == 3){
-  //   //       allAgents[i].agent->printPosition();
-  //   //       std::cout << " ";
-  //   //       allAgents[i].agent->printAssignedPosition();
-  //   //       allAgents.at(i).agent->printNeededInfo();
-  //   //       printKnownPositions(allAgents[i]);
-  //   //     }
-  //   // }
-  //   std::cout << "Number of dropped packets: " << totalNumRequestMessagesSent(allAgents) + totalNumPositionMessagesSent(allAgents) - globalInfo::totalMessagesReceived << std::endl;
-  //}
-}
-
-int main(int argc, char *argv[]){
-  srand(10);
-  globalInfo::totalMessagesReceived = 0;
-  globalInfo::counter = 0;
+int main(int argc, char *argv[]) {
+  // Variables to edit system
   globalInfo::probabilityDropped = 50;
   globalInfo::numAgents = 10;
-  globalInfo::numMoves = 0;
   globalInfo::numTasks = globalInfo::numAgents;
   double speed = 3.0;
+  int numInstrumentClasses = 1;
+  globalInfo::agentsPerClass  = globalInfo::numAgents / numInstrumentClasses;  // Make sure not fractional
+  globalInfo::minPosition = 0.0;
+  globalInfo::maxPosition = 300.0;
+  globalInfo::maxPositionDistance = sqrt(2*((globalInfo::maxPosition - globalInfo::minPosition) * (globalInfo::maxPosition - globalInfo::minPosition)));
+
+  // Variables to initialize
+  globalInfo::totalNumRequestMessages = 0;
+  globalInfo::totalNumPositionMessages = 0;
+  globalInfo::totalPercentageReceived = 0;
+  globalInfo::totalNumberConflicts = 0;
+  globalInfo::totalPercentOptimal = 0;
+  globalInfo::totalMessagesReceived = 0;
+  globalInfo::numMoves = 0;
+  globalInfo::testNumber = 0;
   std::string phyMode("DsssRate1Mbps");
   double rss = -80;  // -dBm
   bool verbose = false;
-  int numInstrumentClasses = 1;
-  globalInfo::agentsPerClass  = globalInfo::numAgents / numInstrumentClasses;  // Make sure not fractional
-  int minPosition = 0.0;
-  int maxPosition = 200.0;
-  globalInfo::maxPositionDistance = sqrt(2*((maxPosition - minPosition) * (maxPosition - minPosition)));
-
+  
   std::vector<int> temp(globalInfo::numAgents, 0);
   globalInfo::instrumentAssignment = temp;
- 
+
   CommandLine cmd;
   cmd.AddValue("phyMode", "Wifi Phy mode", phyMode);
   cmd.AddValue("rss", "received signal strength", rss);
@@ -114,7 +66,7 @@ int main(int argc, char *argv[]){
   
   // The below set of helpers will help us to put together the wifi NICs we want
   WifiHelper wifi;
-  if(verbose){
+  if (verbose) {
     wifi.EnableLogComponents();  // Turn on all Wifi logging
   }
   wifi.SetStandard(WIFI_PHY_STANDARD_80211b);
@@ -147,8 +99,8 @@ int main(int argc, char *argv[]){
   // Robot Positions
   MobilityHelper mobilityRobots;
   Ptr<ListPositionAllocator> positionAllocRobots = CreateObject<ListPositionAllocator>();
-  for(int i = 0; i < globalInfo::numAgents; i++){
-    positionAllocRobots->Add(Vector(randomDouble(minPosition, maxPosition), randomDouble(minPosition, maxPosition), 0.0));
+  for (int i = 0; i < globalInfo::numAgents; i++) {
+    positionAllocRobots->Add(Vector(randomDouble(globalInfo::minPosition, globalInfo::maxPosition), randomDouble(globalInfo::minPosition, globalInfo::maxPosition), 0.0));
   }
   mobilityRobots.SetPositionAllocator(positionAllocRobots);
   mobilityRobots.SetMobilityModel("ns3::ConstantPositionMobilityModel");
@@ -156,25 +108,22 @@ int main(int argc, char *argv[]){
   // Task Positions
   MobilityHelper mobilityTasks;
   Ptr<ListPositionAllocator> positionAllocTasks = CreateObject<ListPositionAllocator>();
-  for(int i = 0; i < globalInfo::numTasks; i++){
-    positionAllocTasks->Add(Vector(randomDouble(minPosition, maxPosition), randomDouble(minPosition, maxPosition), 0.0));
-    // Ptr<Node> node = tasks.Get(i);
-    // doesn't currently change color correctly
-    // AnimationInterface* ya = new AnimationInterface("dynamic_linknode.xml");
-    // ya->UpdateNodeColor (node, 0, 255, 0);
+  for (int i = 0; i < globalInfo::numTasks; i++) {
+    positionAllocTasks->Add(Vector(randomDouble(globalInfo::minPosition, globalInfo::maxPosition), randomDouble(globalInfo::minPosition, globalInfo::maxPosition), 0.0));
   }
   mobilityTasks.SetPositionAllocator(positionAllocTasks);
   mobilityTasks.SetMobilityModel("ns3::ConstantPositionMobilityModel");
   mobilityTasks.Install(tasks);
   vector<Agent*> halfAgents = createAgents();
   
-  for(int i = 0; i < globalInfo::numAgents; i++){
+  for (int i = 0; i < globalInfo::numAgents; i++) {
     AgentNode newAgentNode;
     newAgentNode.node = agents.Get(i);
     newAgentNode.agent = halfAgents.at(i);
     // Set position
     Vector pos = getPosition(newAgentNode.node);
     newAgentNode.agent->agentPosition = pos;
+    newAgentNode.agent->originalPosition = pos;
     newAgentNode.agent->initializeKnownPositions();
     // Set id
     newAgentNode.agent->agentId = newAgentNode.node->GetId();
@@ -185,7 +134,7 @@ int main(int argc, char *argv[]){
     globalInfo::allAgents.push_back(newAgentNode);
   }
 
-  for(int i = 0; i < globalInfo::numTasks; i++){
+  for (int i = 0; i < globalInfo::numTasks; i++) {
     TaskNode newTaskNode;
     newTaskNode.node = tasks.Get(i);
     newTaskNode.task = new Task();
@@ -209,18 +158,33 @@ int main(int argc, char *argv[]){
   wifiPhy.EnablePcap("wifi-simple-adhoc", devices);
 
   // Create sockets
-  for(int i = 0; i < globalInfo::numAgents; i++){
+  for (int i = 0; i < globalInfo::numAgents; i++) {
     Ptr<Socket> recvSink = Socket::CreateSocket(globalInfo::allAgents.at(i).node, UdpSocketFactory::GetTypeId ());
     InetSocketAddress local = InetSocketAddress(Ipv4Address::GetAny (), 80);
-    if(recvSink->Bind(local) == -1){
+    if (recvSink->Bind(local) == -1) {
       recvSink->Close();
       std::cout << "Error binding" << std::endl;
     } 
     recvSink->SetRecvCallback(MakeCallback(&ReceivePacket));
   }
 
-  Simulator::Schedule(Seconds(1), &calculateCostsAndPrepareRequests, globalInfo::allAgents, globalInfo::allTasks, interface);  Simulator::Run();
-  Simulator::Destroy();
+  // Run Tests
+  // for (int i = 0; i < 10; i++) {
+  //   std::cout << "Round " << i << std::endl;
+  //   srand(i);
+  //   globalInfo::totalMessagesReceived = 0;
+    
+  //   Simulator::Schedule(Seconds(1), &calculateCostsAndPrepareRequests, globalInfo::allAgents, globalInfo::allTasks, interface); 
+    
 
+  //   giveAllAgentsRandomPositions(minPosition, maxPosition, globalInfo::allAgents);
+  //   updateAllPositions(globalInfo::allAgents);
+  //   resetAgents(globalInfo::allAgents);
+  //   //Simulator::Destroy();
+  // }
+
+  Simulator::Schedule(Seconds(1), &runTests, globalInfo::allTasks, globalInfo::allAgents, interface);
+  Simulator::Run();
+  
   return 0;
 }
