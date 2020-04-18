@@ -22,14 +22,14 @@ NS_LOG_COMPONENT_DEFINE("WifiSimpleAdhoc");
 
 int main(int argc, char *argv[]) {
   // Variables to edit system
-  globalInfo::probabilityDropped = 50;
+  globalInfo::probabilityDropped = 100;
   globalInfo::numAgents = 10;
   globalInfo::numTasks = globalInfo::numAgents;
   double speed = 3.0;
   int numInstrumentClasses = 1;
   globalInfo::agentsPerClass  = globalInfo::numAgents / numInstrumentClasses;  // Make sure not fractional
   globalInfo::minPosition = 0.0;
-  globalInfo::maxPosition = 300.0;
+  globalInfo::maxPosition = 200.0;
   globalInfo::maxPositionDistance = sqrt(2*((globalInfo::maxPosition - globalInfo::minPosition) * (globalInfo::maxPosition - globalInfo::minPosition)));
 
   // Variables to initialize
